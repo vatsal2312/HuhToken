@@ -4,7 +4,7 @@ require("@nomiclabs/hardhat-etherscan");
 require("@nomiclabs/hardhat-waffle");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
-const { removeConsoleLog } = require('hardhat-preprocessor');
+const { removeConsoleLog } = require("hardhat-preprocessor");
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -17,7 +17,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 });
 
 /**
- * @type import('hardhat/config').HardhatUserConfig
+ * @type import("hardhat/config").HardhatUserConfig
  */
 module.exports = {
   solidity: {
@@ -35,26 +35,22 @@ module.exports = {
     hardhat: {
       accounts: {
         count: 20,
-        mnemonic: 'drip wheat survey engine mercy punch fit mask quality embrace lens try'
+        mnemonic: "drip wheat survey engine mercy punch fit mask quality embrace lens try"
       },
       allowUnlimitedContractSize: true,
       initialBaseFeePerGas: 0, // workaround from https://github.com/sc-forks/solidity-coverage/issues/652#issuecomment-896330136 . Remove when that issue is closed.
     },
     mainnet: {
-      url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
-      accounts: {
-        mnemonic: process.env.SEED
-      }
+      url: process.env.MAINNET_URL,
+      account: process.env.PRIVATE_KEY
     },
-    rinkeby: {
-      url: `https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
-      accounts: {
-        mnemonic: process.env.TEST_SEED
-      }
+    ropsten: {
+      url: process.env.ROPSTEN_URL,
+      account: process.env.PRIVATE_KEY
     }
   },
   preprocess: {
-    eachLine: removeConsoleLog((hre) => hre.network.name !== 'hardhat' && hre.network.name !== 'localhost')
+    eachLine: removeConsoleLog((hre) => hre.network.name !== "hardhat" && hre.network.name !== "localhost")
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
