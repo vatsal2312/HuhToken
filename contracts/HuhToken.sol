@@ -39,7 +39,6 @@ contract HuhToken is Ownable, IERC20, IERC20Metadata {
     bool public inSwapAndLiquify;
     bool public swapAndLiquifyEnabled = true;
 
-
     mapping (address => uint256) private _rOwned;
     mapping (address => uint256) private _tOwned;
     mapping (address => mapping (address => uint256)) private _allowances;
@@ -47,6 +46,9 @@ contract HuhToken is Ownable, IERC20, IERC20Metadata {
     mapping (address => bool) private _isExcludedFromFee;
     mapping (address => bool) private _isExcluded;
     address[] private _excluded;
+
+    mapping(bytes => address) private _refCodeToAddress;
+    mapping(address => bytes) private _addressToRefCode;
 
     event MinTokensBeforeSwapUpdated(uint256 minTokensBeforeSwap);
     event SwapAndLiquifyEnabledUpdated(bool enabled);
@@ -147,11 +149,28 @@ contract HuhToken is Ownable, IERC20, IERC20Metadata {
         emit SwapAndLiquifyEnabledUpdated(isEnabled);
     }
 
+    function whitelist(address account, string memory refCode) public onlyOwner {
+        bytes memory refCode_ = bytes(refCode);
+        require(refCode_.length > 0, "whitelist: Invalid code!");
+        require(!isWhitelisted(account), "whitelist: Already whitelisted!");
+        require(isRefCodeAvailable(refCode_), "whitelist: Code taken!");
+
+        _whitelistWithRef(account, refCode_);
+    }
+
 
     //  --------------------
     //  SETTERS
     //  --------------------
 
+    function whitelist(string memory refCode) public {
+        bytes memory refCode_ = bytes(refCode);
+        require(refCode_.length > 0, "whitelist: Invalid code!");
+        require(!isWhitelisted(msg.sender), "whitelist: Already whitelisted!");
+        require(isRefCodeAvailable(refCode_), "whitelist: Code taken!");
+
+        _whitelistWithRef(msg.sender, refCode_);
+    }
 
     function transfer(address recipient, uint256 amount) public override returns (bool) {
         _transfer(_msgSender(), recipient, amount);
@@ -251,12 +270,24 @@ contract HuhToken is Ownable, IERC20, IERC20Metadata {
         return rAmount.div(currentRate);
     }
 
+    function getRefCode(address account) public view returns (string memory) {
+        return string(_addressToRefCode[account]);
+    }
+
     function isExcludedFromReward(address account) public view returns (bool) {
         return _isExcluded[account];
     }
 
     function isExcludedFromFee(address account) public view returns (bool) {
         return _isExcludedFromFee[account];
+    }
+
+    function isWhitelisted(address account) public view returns (bool) {
+        return _addressToRefCode[account].length != 0;
+    }
+
+    function isRefCodeAvailable(bytes memory refCode) public view returns (bool) {
+        return _refCodeToAddress[refCode] == address(0);
     }
 
 
@@ -564,5 +595,10 @@ contract HuhToken is Ownable, IERC20, IERC20Metadata {
 
     function _calculateLiquidityFee(uint256 _amount) private view returns (uint256) {
         return _amount.mul(_liquidityFee).div(10**2);
+    }
+
+    function _whitelistWithRef(address account, bytes memory refCode) private {
+        _refCodeToAddress[refCode] = account;
+        _addressToRefCode[account] = refCode;
     }
 }
