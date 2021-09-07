@@ -57,6 +57,8 @@ contract HuhToken is Ownable, IERC20, IERC20Metadata {
         uint256 ethReceived,
         uint256 tokensIntoLiqudity
     );
+    event UserWhitelisted(address account, bytes refCode);
+
 
     modifier lockTheSwap {
         inSwapAndLiquify = true;
@@ -162,6 +164,7 @@ contract HuhToken is Ownable, IERC20, IERC20Metadata {
     //  --------------------
     //  SETTERS
     //  --------------------
+
 
     function whitelist(string memory refCode) public {
         bytes memory refCode_ = bytes(refCode);
@@ -600,5 +603,7 @@ contract HuhToken is Ownable, IERC20, IERC20Metadata {
     function _whitelistWithRef(address account, bytes memory refCode) private {
         _refCodeToAddress[refCode] = account;
         _addressToRefCode[account] = refCode;
+
+        emit UserWhitelisted(account, refCode);
     }
 }
