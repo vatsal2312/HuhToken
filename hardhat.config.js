@@ -6,31 +6,7 @@ require("hardhat-gas-reporter");
 require("solidity-coverage");
 const { removeConsoleLog } = require("hardhat-preprocessor");
 
-// This is a sample Hardhat task. To learn how to create your own go to
-// https://hardhat.org/guides/create-task.html
-task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
-  const accounts = await hre.ethers.getSigners();
-
-  for (const account of accounts) {
-    console.log(account.address);
-  }
-});
-
-/**
- * @type import("hardhat/config").HardhatUserConfig
- */
 module.exports = {
-  solidity: {
-    compilers: [{
-      version: "0.8.4",
-      settings: {
-        optimizer: {
-          enabled: true,
-          runs: 999999
-        },
-      },
-    }]
-  },
   networks: {
     hardhat: {
       accounts: {
@@ -41,23 +17,51 @@ module.exports = {
       initialBaseFeePerGas: 0, // workaround from https://github.com/sc-forks/solidity-coverage/issues/652#issuecomment-896330136 . Remove when that issue is closed.
     },
     mainnet: {
-      url: process.env.MAINNET_URL,
-      account: process.env.PRIVATE_KEY
+      url: process.env.BSC_MAINNET_URL,
+      accounts: [process.env.PRIVATE_KEY]
     },
-    ropsten: {
-      url: process.env.ROPSTEN_URL,
-      account: process.env.PRIVATE_KEY
+    testnet: {
+      url: process.env.BSC_TESTNET_URL,
+      accounts: [process.env.PRIVATE_KEY]
+    },
+  },
+  watcher: {
+    compilation: {
+      tasks: ["compile"],
+      files: ["./contracts"],
+      verbose: true,
+    },
+    ci: {
+      tasks: ["clean", {command: "compile", params: {quiet: true}}, {
+        command: "test",
+        params: {noCompile: true, testFiles: ["testfile.ts"]}
+      }],
     }
   },
-  preprocess: {
-    eachLine: removeConsoleLog((hre) => hre.network.name !== "hardhat" && hre.network.name !== "localhost")
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY,
+  },
+  solidity: {
+    version: "0.8.0",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 999999
+      }
+    }
+  },
+  paths: {
+    sources: "./contracts",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts"
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD",
   },
-  etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+  preprocess: {
+    eachLine: removeConsoleLog((hre) => hre.network.name !== "hardhat" && hre.network.name !== "localhost")
   },
   mocha: {
     timeout: 180000
