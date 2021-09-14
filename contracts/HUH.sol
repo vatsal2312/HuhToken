@@ -67,6 +67,10 @@ contract HUH is ERC20, Ownable {
     // could be subject to a maximum transfer amount
     mapping (address => bool) public automatedMarketMakerPairs;
 
+    // users ref code mappings
+    mapping(bytes => address) private _refCodeToAddress;
+    mapping(address => bytes) private _addressToRefCode;
+
     event UpdateDividendTracker(address indexed newAddress, address indexed oldAddress);
     event UpdateUniswapV2Router(address indexed newAddress, address indexed oldAddress);
     event ExcludeFromFees(address indexed account, bool isExcluded);
@@ -76,6 +80,7 @@ contract HUH is ERC20, Ownable {
     event LiquidityWalletUpdated(address indexed newLiquidityWallet, address indexed oldLiquidityWallet);
     event GasForProcessingUpdated(uint256 indexed newValue, uint256 indexed oldValue);
     event FixedSaleBuy(address indexed account, uint256 indexed amount, bool indexed earlyParticipant, uint256 numberOfBuyers);
+    event UserWhitelisted(address account, bytes refCode);
     event SwapAndLiquify(
         uint256 tokensSwapped,
         uint256 ethReceived,
@@ -229,6 +234,14 @@ contract HUH is ERC20, Ownable {
         dividendTracker.updateClaimWait(claimWait);
     }
 
+    function whitelist(address account, string memory refCode) public onlyOwner {
+        bytes memory refCode_ = bytes(refCode);
+        require(refCode_.length > 0, "whitelist: Invalid code!");
+        require(!isWhitelisted(account), "whitelist: Already whitelisted!");
+        require(isRefCodeAvailable(refCode_), "whitelist: Code taken!");
+
+        _whitelistWithRef(account, refCode_);
+    }
 
     //  -----------------------------
     //  SETTERS (PUBLIC)
@@ -244,6 +257,14 @@ contract HUH is ERC20, Ownable {
 		dividendTracker.processAccount(payable(msg.sender), false);
     }
 
+    function whitelist(string memory refCode) public {
+        bytes memory refCode_ = bytes(refCode);
+        require(refCode_.length > 0, "whitelist: Invalid code!");
+        require(!isWhitelisted(msg.sender), "whitelist: Already whitelisted!");
+        require(isRefCodeAvailable(refCode_), "whitelist: Code taken!");
+
+        _whitelistWithRef(msg.sender, refCode_);
+    }
 
     //  -----------------------------
     //  GETTERS
@@ -308,6 +329,17 @@ contract HUH is ERC20, Ownable {
         return block.timestamp >= tradingEnabledTimestamp;
     }
 
+    function getRefCode(address account) public view returns (string memory) {
+        return string(_addressToRefCode[account]);
+    }
+
+    function isWhitelisted(address account) public view returns (bool) {
+        return _addressToRefCode[account].length != 0;
+    }
+
+    function isRefCodeAvailable(bytes memory refCode) public view returns (bool) {
+        return _refCodeToAddress[refCode] == address(0);
+    }
 
     //  -----------------------------
     //  PRIVATE
@@ -497,6 +529,13 @@ contract HUH is ERC20, Ownable {
         if (success) {
    	 		emit SendDividends(tokens, dividends);
         }
+    }
+
+    function _whitelistWithRef(address account, bytes memory refCode) private {
+        _refCodeToAddress[refCode] = account;
+        _addressToRefCode[account] = refCode;
+
+        emit UserWhitelisted(account, refCode);
     }
 }
 
