@@ -34,7 +34,7 @@ Should the Referee then refer a further individual in order to also benefit from
 
 **Scenario** :
 
-_An individual with an approved wallet address makes a purchase of REFF tokens, the Referrer benefits by receiving a 7% redistribution of BNB on the initial purchase of the Referee. Both the Referrer and Referee receive a permanent reduced sell tax from n% to n% when they sell their REFF tokens._
+_An individual with an approved wallet address makes a purchase of HUH tokens, the Referrer benefits by receiving a 7% redistribution of BNB on the initial purchase of the Referee. Both the Referrer and Referee receive a permanent reduced sell tax from n% to n% when they sell their HUH tokens._
 
 _Should the Referee then refer a further individual in order to also benefit from this programme, the initial person in the chain also receives a n% reward from the purchase of the third person referred. This is capped at the third individual._
 
@@ -42,37 +42,25 @@ _Should the Referee then refer a further individual in order to also benefit fro
 
 The charge for making transaction is n% for purchases &amp; transfers, and n% for sales, this is on every transaction and is as follows:
 
-## Buys
+## Case 1: Normal buy (15%)
 
-Normal buy tax:
+10% BNB for redistribution to 10k+ holders, 2% for LP, 2% HUH for redistribution to all holders, 1% HUH for marketing wallet
 
-10% BNB, 2% LP, 2% redistribution, 1% main wallet = 15%
+## Case 2: Whitelisted buy (15%)
 
-## Whitelisted buys
+One Layer - 10% BNB for Referrer, 2% for LP, 2% HUH for redistribution to all holders, 1% HUH for marketing wallet
+Two Layers - 10% BNB for Referrer, 2% for Referrer of Referrer, 1% HUH for redistribution to all holders, 1% HUH for marketing wallet
+After 1st buy with ref code it uses the normal.
 
-For 1st transaction only:
+## Case 3: Normal sell (20%)
 
-- 10% BNB (first), 2% BNB (second), 1% LP, 1% redistribution, 1% main wallet = 15%
+10% BNB for redistribution for 10k+ holders, 4% for LP, 4% HUH for redistribution to all holders, 2% HUH for marketing wallet
 
-All whitelisted wallets go back to having a normal buy tax.
+## Case 4: Whitelisted sell (10%)
 
-## Sells
+5% BNB for redistribution for 10k+ holders, 2% for LP, 2% HUH for redistribution to all holders, 1% HUH for marketing wallet
 
-10% BNB, 4% LP, 4% redistribution, 2% main wallet = 20%
-
-## Whitelisted sell
-
-For 1st transaction only:
-
-- 5% BNB, 2% LP, 2% redistribution, 1% main wallet = 10%
-
-After 1st transaction:
-
-- 5% BNB, 2% LP, 2% redistribution, 1%main wallet = 10%
-
-Once a wallet is whitelisted, they get permanent reduced sell tax
-
-All rewards are automatically re-distributed to all REFF token holders&#39; wallets in proportion to the amount of REFF held. There are no further actions required. A minimum of n REFF tokens have to be held to receive the distribution.
+All rewards are automatically re-distributed to all HUH token holders&#39; wallets in proportion to the amount of HUH held. There are no further actions required. A minimum of n HUH tokens have to be held to receive the distribution.
 
 We will be using TikiToken&#39;s contract and modify it to our needs.
 
@@ -84,4 +72,4 @@ A dashboard that tracks the users BNB earnings when they provide their wallet ad
 
 The dashboard also has to track every successful referral a user has made and how much BNB they have made from those referrals.
 
-A successful referral is someone that has &quot;approved&quot; their wallet address and then bought REFF tokens from pancake swap.
+A successful referral is someone that has &quot;approved&quot; their wallet address and then bought HUH tokens from pancake swap.
