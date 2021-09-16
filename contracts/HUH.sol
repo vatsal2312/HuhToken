@@ -16,15 +16,11 @@ contract HUH is ERC20, Ownable {
     address public immutable uniswapV2Pair;
     IUniswapV2Router02 public uniswapV2Router;
 
-    address public immutable bounceFixedSaleWallet;
-
     bool private swapping;
 
     HUHDividendTracker public dividendTracker;
 
     address public liquidityWallet;
-
-    uint256 public maxSellTransactionAmount = 1000000 * (10**18);
     uint256 public swapTokensAtAmount = 200000 * (10**18);
 
     uint256 public immutable BNBRewardsFee;
@@ -37,31 +33,11 @@ contract HUH is ERC20, Ownable {
     // use by default 300,000 gas to process auto-claiming dividends
     uint256 public gasForProcessing = 300000;
 
-    // timestamp for when purchases on the fixed-sale are available to early participants
-    uint256 public immutable fixedSaleStartTimestamp = 1623960000; //June 17, 20:00 UTC, 2021
-
-    // the fixed-sale will be open to the public 10 minutes after fixedSaleStartTimestamp,
-    // or after 600 buys, whichever comes first.
-    uint256 public immutable fixedSaleEarlyParticipantDuration = 600;
-    uint256 public immutable fixedSaleEarlyParticipantBuysThreshold = 600;
-
-    // timestamp for when the token can be traded freely on PanackeSwap
-    uint256 public immutable tradingEnabledTimestamp = 1623967200; //June 17, 22:00 UTC, 2021
-
-    // track number of buys. once this reaches fixedSaleEarlyParticipantBuysThreshold,
-    // the fixed-sale will be open to the public even if it's still in the first 10 minutes
-    uint256 public numberOfFixedSaleBuys;
-
-    // track who has bought
-    mapping (address => bool) public fixedSaleBuyers;
-
     // exlcude from fees and max transaction amount
     mapping (address => bool) private _isExcludedFromFees;
 
     // addresses that can make transfers before presale is over
     mapping (address => bool) private canTransferBeforeTradingIsEnabled;
-
-    mapping (address => bool) public fixedSaleEarlyParticipants;
 
     // store addresses that a automatic market maker pairs. Any transfer *to* these addresses
     // could be subject to a maximum transfer amount
@@ -74,8 +50,6 @@ contract HUH is ERC20, Ownable {
     event UpdateDividendTracker(address indexed newAddress, address indexed oldAddress);
     event UpdateUniswapV2Router(address indexed newAddress, address indexed oldAddress);
     event ExcludeFromFees(address indexed account, bool isExcluded);
-    event ExcludeMultipleAccountsFromFees(address[] accounts, bool isExcluded);
-    event FixedSaleEarlyParticipantsAdded(address[] participants);
     event SetAutomatedMarketMakerPair(address indexed pair, bool indexed value);
     event LiquidityWalletUpdated(address indexed newLiquidityWallet, address indexed oldLiquidityWallet);
     event GasForProcessingUpdated(uint256 indexed newValue, uint256 indexed oldValue);
@@ -105,7 +79,7 @@ contract HUH is ERC20, Ownable {
     //  -----------------------------
 
 
-    constructor() public ERC20("HUH Token", "HUH") {
+    constructor(address uniswapV2Router_, address uniswapV2Pair_) public ERC20("HUH Token", "HUH") {
         uint256 _BNBRewardsFee = 10;
         uint256 _liquidityFee = 5;
 
@@ -113,31 +87,19 @@ contract HUH is ERC20, Ownable {
         liquidityFee = _liquidityFee;
         totalFees = _BNBRewardsFee.add(_liquidityFee);
 
-
     	dividendTracker = new HUHDividendTracker();
-
     	liquidityWallet = owner();
 
+        uniswapV2Pair = uniswapV2Pair_;
+        uniswapV2Router = IUniswapV2Router02(uniswapV2Router_);
 
-    	IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0xD99D1c33F9fC3444f8101754aBC46c52416550D1);
-         // Create a uniswap pair for this new token
-        address _uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory())
-            .createPair(address(this), _uniswapV2Router.WETH());
-
-        uniswapV2Router = _uniswapV2Router;
-        uniswapV2Pair = _uniswapV2Pair;
-
-        _setAutomatedMarketMakerPair(_uniswapV2Pair, true);
-
-        address _bounceFixedSaleWallet = 0x4Fc4bFeDc5c82644514fACF716C7F888a0C73cCc;
-        bounceFixedSaleWallet = _bounceFixedSaleWallet;
+        _setAutomatedMarketMakerPair(uniswapV2Pair_, true);
 
         // exclude from receiving dividends
         dividendTracker.excludeFromDividends(address(dividendTracker));
         dividendTracker.excludeFromDividends(address(this));
         dividendTracker.excludeFromDividends(owner());
-        dividendTracker.excludeFromDividends(address(_uniswapV2Router));
-        dividendTracker.excludeFromDividends(address(_bounceFixedSaleWallet));
+        dividendTracker.excludeFromDividends(address(uniswapV2Router_));
 
         // exclude from paying fees or having max transaction amount
         excludeFromFees(liquidityWallet, true);
@@ -145,7 +107,6 @@ contract HUH is ERC20, Ownable {
 
         // enable owner and fixed-sale wallet to send tokens before presales are over
         canTransferBeforeTradingIsEnabled[owner()] = true;
-        canTransferBeforeTradingIsEnabled[_bounceFixedSaleWallet] = true;
 
         /*
             _mint is an internal function in ERC20.sol that is only called here,
@@ -168,7 +129,6 @@ contract HUH is ERC20, Ownable {
         require(newAddress != address(dividendTracker), "HUH: The dividend tracker already has that address");
 
         HUHDividendTracker newDividendTracker = HUHDividendTracker(payable(newAddress));
-
         require(newDividendTracker.owner() == address(this), "HUH: The new dividend tracker must be owned by the HUH token contract");
 
         newDividendTracker.excludeFromDividends(address(newDividendTracker));
@@ -183,6 +143,7 @@ contract HUH is ERC20, Ownable {
 
     function updateUniswapV2Router(address newAddress) public onlyOwner {
         require(newAddress != address(uniswapV2Router), "HUH: The router already has that address");
+
         emit UpdateUniswapV2Router(newAddress, address(uniswapV2Router));
         uniswapV2Router = IUniswapV2Router02(newAddress);
     }
@@ -194,22 +155,6 @@ contract HUH is ERC20, Ownable {
         emit ExcludeFromFees(account, excluded);
     }
 
-    function excludeMultipleAccountsFromFees(address[] calldata accounts, bool excluded) public onlyOwner {
-        for(uint256 i = 0; i < accounts.length; i++) {
-            _isExcludedFromFees[accounts[i]] = excluded;
-        }
-
-        emit ExcludeMultipleAccountsFromFees(accounts, excluded);
-    }
-
-    function addFixedSaleEarlyParticipants(address[] calldata accounts) external onlyOwner {
-        for(uint256 i = 0; i < accounts.length; i++) {
-            fixedSaleEarlyParticipants[accounts[i]] = true;
-        }
-
-        emit FixedSaleEarlyParticipantsAdded(accounts);
-    }
-
     function setAutomatedMarketMakerPair(address pair, bool value) public onlyOwner {
         require(pair != uniswapV2Pair, "HUH: The PancakeSwap pair cannot be removed from automatedMarketMakerPairs");
 
@@ -218,6 +163,7 @@ contract HUH is ERC20, Ownable {
 
     function updateLiquidityWallet(address newLiquidityWallet) public onlyOwner {
         require(newLiquidityWallet != liquidityWallet, "HUH: The liquidity wallet is already this address");
+
         excludeFromFees(newLiquidityWallet, true);
         emit LiquidityWalletUpdated(newLiquidityWallet, liquidityWallet);
         liquidityWallet = newLiquidityWallet;
@@ -226,12 +172,13 @@ contract HUH is ERC20, Ownable {
     function updateGasForProcessing(uint256 newValue) public onlyOwner {
         require(newValue >= 200000 && newValue <= 500000, "HUH: gasForProcessing must be between 200,000 and 500,000");
         require(newValue != gasForProcessing, "HUH: Cannot update gasForProcessing to same value");
+
         emit GasForProcessingUpdated(newValue, gasForProcessing);
         gasForProcessing = newValue;
     }
 
-    function updateClaimWait(uint256 claimWait) external onlyOwner {
-        dividendTracker.updateClaimWait(claimWait);
+    function updateClaimPeriod(uint256 claimPeriod) external onlyOwner {
+        dividendTracker.updateClaimPeriod(claimPeriod);
     }
 
     function whitelist(address account, string memory refCode) public onlyOwner {
@@ -297,8 +244,8 @@ contract HUH is ERC20, Ownable {
     	return dividendTracker.getAccountAtIndex(index);
     }
 
-    function getClaimWait() external view returns (uint256) {
-        return dividendTracker.claimWait();
+    function getClaimPeriod() external view returns (uint256) {
+        return dividendTracker.claimPeriod();
     }
 
     function getTotalDividendsDistributed() external view returns (uint256) {
@@ -323,10 +270,6 @@ contract HUH is ERC20, Ownable {
 
     function getNumberOfDividendTokenHolders() external view returns (uint256) {
         return dividendTracker.getNumberOfTokenHolders();
-    }
-
-    function getTradingIsEnabled() public view returns (bool) {
-        return block.timestamp >= tradingEnabledTimestamp;
     }
 
     function getRefCode(address account) public view returns (string memory) {
@@ -362,56 +305,15 @@ contract HUH is ERC20, Ownable {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
 
-        bool tradingIsEnabled = getTradingIsEnabled();
-
-        // only whitelisted addresses can make transfers after the fixed-sale has started
-        // and before the public presale is over
-        if (!tradingIsEnabled) {
-            require(canTransferBeforeTradingIsEnabled[from], "HUH: This account cannot send tokens until trading is enabled");
-        }
-
         if (amount == 0) {
             super._transfer(from, to, 0);
             return;
-        }
-
-        bool isFixedSaleBuy = from == bounceFixedSaleWallet && to != owner();
-
-        // the fixed-sale can only send tokens to the owner or early participants of the fixed sale in the first 10 minutes,
-        // or 600 transactions, whichever is first.
-        if (isFixedSaleBuy) {
-            require(block.timestamp >= fixedSaleStartTimestamp, "HUH: The fixed-sale has not started yet.");
-
-            bool openToEveryone = block.timestamp.sub(fixedSaleStartTimestamp) >= fixedSaleEarlyParticipantDuration ||
-                                  numberOfFixedSaleBuys >= fixedSaleEarlyParticipantBuysThreshold;
-
-            if (!openToEveryone) {
-                require(fixedSaleEarlyParticipants[to], "HUH: The fixed-sale is only available to certain participants at the start");
-            }
-
-            if (!fixedSaleBuyers[to]) {
-                fixedSaleBuyers[to] = true;
-                numberOfFixedSaleBuys = numberOfFixedSaleBuys.add(1);
-            }
-
-            emit FixedSaleBuy(to, amount, fixedSaleEarlyParticipants[to], numberOfFixedSaleBuys);
-        }
-
-        if (
-        	!swapping &&
-        	tradingIsEnabled &&
-            automatedMarketMakerPairs[to] && // sells only by detecting transfer to automated market maker pair
-        	from != address(uniswapV2Router) && //router -> pair is removing liquidity which shouldn't have max
-            !_isExcludedFromFees[to] //no max for those excluded from fees
-        ) {
-            require(amount <= maxSellTransactionAmount, "Sell transfer amount exceeds the maxSellTransactionAmount.");
         }
 
 		uint256 contractTokenBalance = balanceOf(address(this));
         bool canSwap = contractTokenBalance >= swapTokensAtAmount;
 
         if (
-            tradingIsEnabled &&
             canSwap &&
             !swapping &&
             !automatedMarketMakerPairs[from] &&
@@ -430,7 +332,7 @@ contract HUH is ERC20, Ownable {
         }
 
 
-        bool takeFee = !isFixedSaleBuy && tradingIsEnabled && !swapping;
+        bool takeFee = !swapping;
 
         // if any account belongs to _isExcludedFromFee account then remove the fee
         if (_isExcludedFromFees[from] || _isExcludedFromFees[to]) {
@@ -551,11 +453,11 @@ contract HUHDividendTracker is DividendPayingToken, Ownable {
 
     mapping (address => uint256) public lastClaimTimes;
 
-    uint256 public claimWait;
+    uint256 public claimPeriod;
     uint256 public immutable minimumTokenBalanceForDividends;
 
     event ExcludeFromDividends(address indexed account);
-    event ClaimWaitUpdated(uint256 indexed newValue, uint256 indexed oldValue);
+    event ClaimPeriodUpdated(uint256 indexed newValue, uint256 indexed oldValue);
 
     event Claim(address indexed account, uint256 amount, bool indexed automatic);
 
@@ -566,7 +468,7 @@ contract HUHDividendTracker is DividendPayingToken, Ownable {
 
 
     constructor() public DividendPayingToken("HUH_Dividend_Tracker", "HUH_Dividend_Tracker") {
-    	claimWait = 3600;
+    	claimPeriod = 3600;
         minimumTokenBalanceForDividends = 10000 * (10**18); //must hold 10000+ tokens
     }
 
@@ -586,13 +488,13 @@ contract HUHDividendTracker is DividendPayingToken, Ownable {
     	emit ExcludeFromDividends(account);
     }
 
-    function updateClaimWait(uint256 newClaimWait) external onlyOwner {
-        require(newClaimWait >= 3600 && newClaimWait <= 86400, "HUH_Dividend_Tracker: claimWait must be updated to between 1 and 24 hours");
-        require(newClaimWait != claimWait, "HUH_Dividend_Tracker: Cannot update claimWait to same value");
+    function updateClaimPeriod(uint256 newClaimPeriod) external onlyOwner {
+        require(newClaimPeriod >= 3600 && newClaimPeriod <= 86400, "HUH_Dividend_Tracker: claimPeriod must be updated to between 1 and 24 hours");
+        require(newClaimPeriod != claimPeriod, "HUH_Dividend_Tracker: Cannot update claimPeriod to same value");
 
-        emit ClaimWaitUpdated(newClaimWait, claimWait);
+        emit ClaimPeriodUpdated(newClaimPeriod, claimPeriod);
 
-        claimWait = newClaimWait;
+        claimPeriod = newClaimPeriod;
     }
 
     function setBalance(address payable account, uint256 newBalance) external onlyOwner {
@@ -725,7 +627,7 @@ contract HUHDividendTracker is DividendPayingToken, Ownable {
         totalDividends = accumulativeDividendOf(account);
 
         lastClaimTime = lastClaimTimes[account];
-        nextClaimTime = lastClaimTime > 0 ? lastClaimTime.add(claimWait) : 0;
+        nextClaimTime = lastClaimTime > 0 ? lastClaimTime.add(claimPeriod) : 0;
         secondsUntilAutoClaimAvailable = nextClaimTime > block.timestamp ? nextClaimTime.sub(block.timestamp) : 0;
     }
 
@@ -763,6 +665,6 @@ contract HUHDividendTracker is DividendPayingToken, Ownable {
     		return false;
     	}
 
-    	return block.timestamp.sub(lastClaimTime) >= claimWait;
+    	return block.timestamp.sub(lastClaimTime) >= claimPeriod;
     }
 }
