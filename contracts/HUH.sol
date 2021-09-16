@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./helpers/IterableMapping.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import { IUniswapV2Pair, IUniswapV2Factory, IUniswapV2Router02 } from "./interfaces/IUniswap.sol";
+import { IUniswapV2Pair, IUniswapV2Router02 } from "./interfaces/IUniswap.sol";
 
 
 contract HUH is ERC20, Ownable {
