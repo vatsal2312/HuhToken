@@ -38,27 +38,9 @@ _An individual with an approved wallet address makes a purchase of HUH tokens, t
 
 _Should the Referee then refer a further individual in order to also benefit from this programme, the initial person in the chain also receives a n% reward from the purchase of the third person referred. This is capped at the third individual._
 
-## Token info
+## Fees
 
-The charge for making transaction is n% for purchases &amp; transfers, and n% for sales, this is on every transaction and is as follows:
-
-## Case 1: Normal buy (15%)
-
-10% BNB for redistribution to 10k+ holders, 2% for LP, 2% HUH for redistribution to all holders, 1% HUH for marketing wallet
-
-## Case 2: Whitelisted buy (15%)
-
-One Layer - 10% BNB for Referrer, 2% for LP, 2% HUH for redistribution to all holders, 1% HUH for marketing wallet
-Two Layers - 10% BNB for Referrer, 2% for Referrer of Referrer, 1% HUH for redistribution to all holders, 1% HUH for marketing wallet
-After 1st buy with ref code it uses the normal.
-
-## Case 3: Normal sell (20%)
-
-10% BNB for redistribution for 10k+ holders, 4% for LP, 4% HUH for redistribution to all holders, 2% HUH for marketing wallet
-
-## Case 4: Whitelisted sell (10%)
-
-5% BNB for redistribution for 10k+ holders, 2% for LP, 2% HUH for redistribution to all holders, 1% HUH for marketing wallet
+![Fees](https://user-images.githubusercontent.com/16293599/133937617-66ac33e5-b129-4c34-92cd-f3639794519a.png)
 
 All rewards are automatically re-distributed to all HUH token holders&#39; wallets in proportion to the amount of HUH held. There are no further actions required. A minimum of n HUH tokens have to be held to receive the distribution.
 
