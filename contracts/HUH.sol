@@ -23,10 +23,6 @@ contract HUH is ERC20, Ownable {
     address public liquidityWallet;
     uint256 public swapTokensAtAmount = 200000 * (10**18);
 
-    uint256 public immutable BNBRewardsFee;
-    uint256 public immutable liquidityFee;
-    uint256 public immutable totalFees;
-
     // sells have fees of 12 and 6 (10 * 1.2 and 5 * 1.2)
     uint256 public immutable sellFeeIncreaseFactor = 120;
 
@@ -46,6 +42,8 @@ contract HUH is ERC20, Ownable {
     // users ref code mappings
     mapping(bytes => address) private _refCodeToAddress;
     mapping(address => bytes) private _addressToRefCode;
+    mapping(address => bool) private _refCodeUsed;
+    mapping(address => address) private _referrer;
 
     event UpdateDividendTracker(address indexed newAddress, address indexed oldAddress);
     event UpdateUniswapV2Router(address indexed newAddress, address indexed oldAddress);
@@ -54,7 +52,7 @@ contract HUH is ERC20, Ownable {
     event LiquidityWalletUpdated(address indexed newLiquidityWallet, address indexed oldLiquidityWallet);
     event GasForProcessingUpdated(uint256 indexed newValue, uint256 indexed oldValue);
     event FixedSaleBuy(address indexed account, uint256 indexed amount, bool indexed earlyParticipant, uint256 numberOfBuyers);
-    event UserWhitelisted(address account, bytes refCode);
+    event UserWhitelisted(address account, address referrer, bytes refCode);
     event SwapAndLiquify(
         uint256 tokensSwapped,
         uint256 ethReceived,
@@ -80,13 +78,6 @@ contract HUH is ERC20, Ownable {
 
 
     constructor(address uniswapV2Router_, address uniswapV2Pair_) public ERC20("HUH Token", "HUH") {
-        uint256 _BNBRewardsFee = 10;
-        uint256 _liquidityFee = 5;
-
-        BNBRewardsFee = _BNBRewardsFee;
-        liquidityFee = _liquidityFee;
-        totalFees = _BNBRewardsFee.add(_liquidityFee);
-
     	dividendTracker = new HUHDividendTracker();
     	liquidityWallet = owner();
 
@@ -181,14 +172,17 @@ contract HUH is ERC20, Ownable {
         dividendTracker.updateClaimPeriod(claimPeriod);
     }
 
+    // TODO: It uses too much centralisation (owner allowed to whitelist many referrals under himself)
     function whitelist(address account, string memory refCode) public onlyOwner {
         bytes memory refCode_ = bytes(refCode);
         require(refCode_.length > 0, "whitelist: Invalid code!");
         require(!isWhitelisted(account), "whitelist: Already whitelisted!");
         require(isRefCodeAvailable(refCode_), "whitelist: Code taken!");
 
-        _whitelistWithRef(account, refCode_);
+        address referrer = _refCodeToAddress[refCode_];
+        _whitelistWithRef(account, refCode_, referrer);
     }
+
 
     //  -----------------------------
     //  SETTERS (PUBLIC)
@@ -204,13 +198,18 @@ contract HUH is ERC20, Ownable {
 		dividendTracker.processAccount(payable(msg.sender), false);
     }
 
-    function whitelist(string memory refCode) public {
+    function whitelist(string memory ownCode, string memory refCode) public {
+        bytes memory ownCode_ = bytes(ownCode);
         bytes memory refCode_ = bytes(refCode);
-        require(refCode_.length > 0, "whitelist: Invalid code!");
-        require(!isWhitelisted(msg.sender), "whitelist: Already whitelisted!");
-        require(isRefCodeAvailable(refCode_), "whitelist: Code taken!");
+        require(ownCode_.length > 0, "whitelist: Invalid own code!");
+        require(refCode_.length > 0, "whitelist: Invalid referrer code!");
 
-        _whitelistWithRef(msg.sender, refCode_);
+        require(!isWhitelisted(msg.sender), "whitelist: User already whitelisted!");
+        require(isRefCodeAvailable(ownCode_), "whitelist: Own code taken!");
+        require(!isRefCodeAvailable(refCode_), "whitelist: Referrer code not exists!");
+
+        address referrer = _refCodeToAddress[refCode_];
+        _whitelistWithRef(msg.sender, ownCode_, referrer);
     }
 
     //  -----------------------------
@@ -276,6 +275,10 @@ contract HUH is ERC20, Ownable {
         return string(_addressToRefCode[account]);
     }
 
+    function refCodeUsed(address account) public view returns (bool) {
+        return _refCodeUsed[account];
+    }
+
     function isWhitelisted(address account) public view returns (bool) {
         return _addressToRefCode[account].length != 0;
     }
@@ -311,10 +314,10 @@ contract HUH is ERC20, Ownable {
         }
 
 		uint256 contractTokenBalance = balanceOf(address(this));
-        bool canSwap = contractTokenBalance >= swapTokensAtAmount;
+        bool enoughTokensToSwap = contractTokenBalance >= swapTokensAtAmount;
 
         if (
-            canSwap &&
+            enoughTokensToSwap &&
             !swapping &&
             !automatedMarketMakerPairs[from] &&
             from != liquidityWallet &&
@@ -322,15 +325,16 @@ contract HUH is ERC20, Ownable {
         ) {
             swapping = true;
 
-            uint256 swapTokens = contractTokenBalance.mul(liquidityFee).div(totalFees);
+            // Step 1) Add liquidity
+            uint256 swapTokens = contractTokenBalance.mul(5).div(15);
             _swapAndLiquify(swapTokens);
 
+            // Step 2) Send dividends to 10k HUH/+ holders
             uint256 sellTokens = balanceOf(address(this));
             _swapAndSendDividends(sellTokens);
 
             swapping = false;
         }
-
 
         bool takeFee = !swapping;
 
@@ -340,7 +344,7 @@ contract HUH is ERC20, Ownable {
         }
 
         if (takeFee) {
-        	uint256 fees = amount.mul(totalFees).div(100);
+        	uint256 fees = amount.mul(15).div(100);
 
             // if sell, multiply by 1.2
             if (automatedMarketMakerPairs[to]) {
@@ -389,6 +393,11 @@ contract HUH is ERC20, Ownable {
         emit SwapAndLiquify(half, newBalance, otherHalf);
     }
 
+    function _swapAndTransfer(uint256 tokens, address receiver) private {
+        _swapTokensForEth(tokens);
+        (bool success,) = receiver.call{value: address(this).balance}("");
+    }
+
     function _swapTokensForEth(uint256 tokenAmount) private {
         // generate the uniswap pair path of token -> weth
         address[] memory path = new address[](2);
@@ -433,11 +442,13 @@ contract HUH is ERC20, Ownable {
         }
     }
 
-    function _whitelistWithRef(address account, bytes memory refCode) private {
-        _refCodeToAddress[refCode] = account;
-        _addressToRefCode[account] = refCode;
+    // TODO: Check any possible issue with string/bytes length
+    function _whitelistWithRef(address account, bytes memory code, address referrer) private {
+        _refCodeToAddress[code] = account;
+        _addressToRefCode[account] = code;
+        _referrer[account] = referrer;
 
-        emit UserWhitelisted(account, refCode);
+        emit UserWhitelisted(account, referrer, code);
     }
 }
 
