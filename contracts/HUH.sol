@@ -52,7 +52,9 @@ contract HUH is ERC20, Ownable {
     event LiquidityWalletUpdated(address indexed newLiquidityWallet, address indexed oldLiquidityWallet);
     event GasForProcessingUpdated(uint256 indexed newValue, uint256 indexed oldValue);
     event FixedSaleBuy(address indexed account, uint256 indexed amount, bool indexed earlyParticipant, uint256 numberOfBuyers);
-    event UserWhitelisted(address account, address referrer, bytes refCode);
+    event UserWhitelisted(address account, address referrer);
+    event CodeRegisterred(address account, bytes code);
+
     event SwapAndLiquify(
         uint256 tokensSwapped,
         uint256 ethReceived,
@@ -168,19 +170,17 @@ contract HUH is ERC20, Ownable {
         gasForProcessing = newValue;
     }
 
-    function updateClaimPeriod(uint256 claimPeriod) external onlyOwner {
+    function updateClaimPeriod(uint256 claimPeriod) public onlyOwner {
         dividendTracker.updateClaimPeriod(claimPeriod);
     }
 
-    // TODO: It uses too much centralisation (owner allowed to whitelist many referrals under himself)
-    function whitelist(address account, string memory refCode) public onlyOwner {
-        bytes memory refCode_ = bytes(refCode);
-        require(refCode_.length > 0, "whitelist: Invalid code!");
-        require(!isWhitelisted(account), "whitelist: Already whitelisted!");
-        require(isRefCodeAvailable(refCode_), "whitelist: Code taken!");
+    function registerCode(address account, string memory code) public onlyOwner {
+        bytes memory code_ = bytes(code);
+        require(code_.length > 0, "registerCode: Invalid code!");
+        require(isWhitelisted(account), "registerCode: Whitelist first!");
+        require(isRefCodeAvailable(code_), "registerCode: Code taken!");
 
-        address referrer = _refCodeToAddress[refCode_];
-        _whitelistWithRef(account, refCode_, referrer);
+        _registerCode(account, code_);
     }
 
 
@@ -198,18 +198,22 @@ contract HUH is ERC20, Ownable {
 		dividendTracker.processAccount(payable(msg.sender), false);
     }
 
-    function whitelist(string memory ownCode, string memory refCode) public {
-        bytes memory ownCode_ = bytes(ownCode);
+    function whitelist(string memory refCode) public {
         bytes memory refCode_ = bytes(refCode);
-        require(ownCode_.length > 0, "whitelist: Invalid own code!");
-        require(refCode_.length > 0, "whitelist: Invalid referrer code!");
+        require(refCode_.length > 0, "whitelist: Invalid code!");
+        require(!isWhitelisted(msg.sender), "whitelist: Already whitelisted!");
+        require(!isRefCodeAvailable(refCode_), "whitelist: Invalid ref code!");
 
-        require(!isWhitelisted(msg.sender), "whitelist: User already whitelisted!");
-        require(isRefCodeAvailable(ownCode_), "whitelist: Own code taken!");
-        require(!isRefCodeAvailable(refCode_), "whitelist: Referrer code not exists!");
+        _whitelistWithRef(msg.sender, _refCodeToAddress[refCode_]);
+    }
 
-        address referrer = _refCodeToAddress[refCode_];
-        _whitelistWithRef(msg.sender, ownCode_, referrer);
+    function registerCode(string memory code) public {
+        bytes memory code_ = bytes(code);
+        require(code_.length > 0, "registerCode: Invalid code!");
+        require(isWhitelisted(msg.sender), "registerCode: Whitelist first!");
+        require(isRefCodeAvailable(code_), "registerCode: Code taken!");
+
+        _registerCode(msg.sender, code_);
     }
 
     //  -----------------------------
@@ -443,12 +447,17 @@ contract HUH is ERC20, Ownable {
     }
 
     // TODO: Check any possible issue with string/bytes length
-    function _whitelistWithRef(address account, bytes memory code, address referrer) private {
-        _refCodeToAddress[code] = account;
-        _addressToRefCode[account] = code;
+    function _whitelistWithRef(address account, address referrer) private {
         _referrer[account] = referrer;
 
-        emit UserWhitelisted(account, referrer, code);
+        emit UserWhitelisted(account, referrer);
+    }
+
+    function _registerCode(address account, bytes memory code) private {
+        _refCodeToAddress[code] = account;
+        _addressToRefCode[account] = code;
+
+        emit CodeRegisterred(account, code);
     }
 }
 
