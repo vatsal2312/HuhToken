@@ -26,6 +26,21 @@ contract HUH is ERC20, Ownable {
     // sells have fees of 12 and 6 (10 * 1.2 and 5 * 1.2)
     uint256 public immutable sellFeeIncreaseFactor = 120;
 
+    // Constant fees for all cases
+    uint256 public totalFee;
+    uint256 public lpFee;
+    uint256 public marketingFee;
+    uint256 public redistributionBnbFee;
+
+    // Fees which should be transferred to referees immediately
+    uint256 public layerOneBnbFee;
+    uint256 public layerTwoBnbFee;
+
+    // Reflected balance fees
+    uint256 public normalReflFee;
+    uint256 public whitelistBuyReflFee;
+    uint256 public whitelistSellReflFee;
+
     // use by default 300,000 gas to process auto-claiming dividends
     uint256 public gasForProcessing = 300000;
 
@@ -42,8 +57,8 @@ contract HUH is ERC20, Ownable {
     // users ref code mappings
     mapping(bytes => address) private _refCodeToAddress;
     mapping(address => bytes) private _addressToRefCode;
-    mapping(address => bool) private _refCodeUsed;
-    mapping(address => address) private _referrer;
+    mapping(address => bool) private _refereeRewardSent;
+    mapping(address => address) private _referee;
 
     event UpdateDividendTracker(address indexed newAddress, address indexed oldAddress);
     event UpdateUniswapV2Router(address indexed newAddress, address indexed oldAddress);
@@ -52,7 +67,17 @@ contract HUH is ERC20, Ownable {
     event LiquidityWalletUpdated(address indexed newLiquidityWallet, address indexed oldLiquidityWallet);
     event GasForProcessingUpdated(uint256 indexed newValue, uint256 indexed oldValue);
     event FixedSaleBuy(address indexed account, uint256 indexed amount, bool indexed earlyParticipant, uint256 numberOfBuyers);
-    event UserWhitelisted(address account, address referrer);
+    event FeesUpdated(
+        uint256 lpFee,
+        uint256 marketingFee,
+        uint256 redistributionBnbFee,
+        uint256 layerOneBnbFee,
+        uint256 layerTwoBnbFee,
+        uint256 normalReflFee,
+        uint256 whitelistBuyReflFee,
+        uint256 whitelistSellReflFee
+    );
+    event UserWhitelisted(address account, address referee);
     event CodeRegisterred(address account, bytes code);
 
     event SwapAndLiquify(
@@ -82,6 +107,7 @@ contract HUH is ERC20, Ownable {
     constructor(address uniswapV2Router_, address uniswapV2Pair_) public ERC20("HUH Token", "HUH") {
     	dividendTracker = new HUHDividendTracker();
     	liquidityWallet = owner();
+        _saveFees(1, 1, 5, 10, 2, 1, 3, 8);
 
         uniswapV2Pair = uniswapV2Pair_;
         uniswapV2Router = IUniswapV2Router02(uniswapV2Router_);
@@ -177,7 +203,7 @@ contract HUH is ERC20, Ownable {
     function registerCode(address account, string memory code) public onlyOwner {
         bytes memory code_ = bytes(code);
         require(code_.length > 0, "registerCode: Invalid code!");
-        require(isWhitelisted(account), "registerCode: Whitelist first!");
+        require(!isRegistered(account), "registerCode: Already registerred!");
         require(isRefCodeAvailable(code_), "registerCode: Code taken!");
 
         _registerCode(account, code_);
@@ -210,11 +236,12 @@ contract HUH is ERC20, Ownable {
     function registerCode(string memory code) public {
         bytes memory code_ = bytes(code);
         require(code_.length > 0, "registerCode: Invalid code!");
-        require(isWhitelisted(msg.sender), "registerCode: Whitelist first!");
+        require(!isRegistered(msg.sender), "registerCode: Already registerred!");
         require(isRefCodeAvailable(code_), "registerCode: Code taken!");
 
         _registerCode(msg.sender, code_);
     }
+
 
     //  -----------------------------
     //  GETTERS
@@ -279,17 +306,22 @@ contract HUH is ERC20, Ownable {
         return string(_addressToRefCode[account]);
     }
 
-    function refCodeUsed(address account) public view returns (bool) {
-        return _refCodeUsed[account];
+    function isRefereeRewardSent(address account) public view returns (bool) {
+        return _refereeRewardSent[account];
     }
 
     function isWhitelisted(address account) public view returns (bool) {
+        return _referee[account] != address(0);
+    }
+
+    function isRegistered(address account) public view returns (bool) {
         return _addressToRefCode[account].length != 0;
     }
 
     function isRefCodeAvailable(bytes memory refCode) public view returns (bool) {
         return _refCodeToAddress[refCode] == address(0);
     }
+
 
     //  -----------------------------
     //  PRIVATE
@@ -329,11 +361,16 @@ contract HUH is ERC20, Ownable {
         ) {
             swapping = true;
 
+            uint256 swapTokens = contractTokenBalance.mul(lpFee).div(totalFee);
+            uint256 marketingTokens = contractTokenBalance.mul(marketingFee).div(totalFee);
+
             // Step 1) Add liquidity
-            uint256 swapTokens = contractTokenBalance.mul(5).div(15);
             _swapAndLiquify(swapTokens);
 
-            // Step 2) Send dividends to 10k HUH/+ holders
+            // Step 2) Transfer to marketing wallet
+            super._transfer(address(this), liquidityWallet, marketingTokens);
+
+            // Step 3) Send the rest tokens as dividends to 10k HUH/+ holders
             uint256 sellTokens = balanceOf(address(this));
             _swapAndSendDividends(sellTokens);
 
@@ -348,13 +385,44 @@ contract HUH is ERC20, Ownable {
         }
 
         if (takeFee) {
-        	uint256 fees = amount.mul(15).div(100);
+            uint256 txFee = totalFee;
+            bool isWhitelistedUser = isWhitelisted(from);
 
-            // if sell, multiply by 1.2
-            if (automatedMarketMakerPairs[to]) {
-                fees = fees.mul(sellFeeIncreaseFactor).div(100);
+            // If buying tx
+            if (automatedMarketMakerPairs[from]) {
+                // If first buy after being whitelisted
+                if (isWhitelistedUser && !_refereeRewardSent[from]) {
+                    _refereeRewardSent[from] = true;
+
+                    // No need to cut the redistribution fee
+                    // if it 1st time whitlisted buy
+                    txFee = txFee.add(redistributionBnbFee);
+
+                    // 1st referee (always exists for whitelisted users)
+                    address refereeOne = _referee[from];
+                    uint256 refereeTokens = amount.mul(layerOneBnbFee).div(100);
+
+                    // 2nd referee
+                    address refereeTwo = _referee[refereeOne];
+                    if (refereeTwo != address(0)) {
+                        refereeTokens = refereeTokens.add(amount.mul(layerTwoBnbFee).div(100));
+                    }
+
+                    // Swap and send BNB to referees
+                    _swapAndRewardReferee(refereeTokens, refereeOne, refereeTwo);
+
+                    // Decrease the amount by referees fee
+                    amount = amount.sub(refereeTokens);
+                }
             }
 
+            // If selling tx
+            else if (automatedMarketMakerPairs[to] && isWhitelistedUser) {
+                // reflectionFee = 
+            }
+
+            // Decrease tokens amount
+            uint256 fees = amount.mul(txFee).div(100);
         	amount = amount.sub(fees);
 
             super._transfer(from, address(this), fees);
@@ -397,9 +465,33 @@ contract HUH is ERC20, Ownable {
         emit SwapAndLiquify(half, newBalance, otherHalf);
     }
 
-    function _swapAndTransfer(uint256 tokens, address receiver) private {
+    function _swapAndRewardReferee(uint256 tokens, address refereeOne, address refereeTwo) private {
+        // capture the contract's current ETH balance.
+        // this is so that we can capture exactly the amount of ETH that the
+        // swap creates, and not make the liquidity event include any ETH that
+        // has been manually sent to the contract
+        uint256 initialBalance = address(this).balance;
+
+        // swap tokens for ETH
         _swapTokensForEth(tokens);
-        (bool success,) = receiver.call{value: address(this).balance}("");
+
+        // how much ETH did we just swap into?
+        uint256 newBalance = address(this).balance.sub(initialBalance);
+
+        // If referee two is not provided
+        if (refereeTwo == address(0)) {
+            (bool success,) = refereeOne.call{value: newBalance}("");
+        } else {
+            uint256 totalRefereeFee = layerOneBnbFee.add(layerTwoBnbFee);
+
+            // Send to referee 1
+            uint256 refereeOneBnb = newBalance.mul(layerOneBnbFee).div(totalRefereeFee);
+            (bool success,) = refereeOne.call{value: refereeOneBnb}("");
+
+            // Send to referee 2
+            uint256 refereeTwoBnb = newBalance.sub(refereeOneBnb);
+            (success,) = refereeTwo.call{value: refereeTwoBnb}("");
+        }
     }
 
     function _swapTokensForEth(uint256 tokenAmount) private {
@@ -447,10 +539,10 @@ contract HUH is ERC20, Ownable {
     }
 
     // TODO: Check any possible issue with string/bytes length
-    function _whitelistWithRef(address account, address referrer) private {
-        _referrer[account] = referrer;
+    function _whitelistWithRef(address account, address referee) private {
+        _referee[account] = referee;
 
-        emit UserWhitelisted(account, referrer);
+        emit UserWhitelisted(account, referee);
     }
 
     function _registerCode(address account, bytes memory code) private {
@@ -458,6 +550,40 @@ contract HUH is ERC20, Ownable {
         _addressToRefCode[account] = code;
 
         emit CodeRegisterred(account, code);
+    }
+
+    function _saveFees(
+        uint256 lpFee_,
+        uint256 marketingFee_,
+        uint256 redistributionBnbFee_,
+        uint256 layerOneBnbFee_,
+        uint256 layerTwoBnbFee_,
+        uint256 normalReflFee_,
+        uint256 whitelistBuyReflFee_,
+        uint256 whitelistSellReflFee_
+    ) private {
+        lpFee = lpFee_;
+        marketingFee = marketingFee_;
+        redistributionBnbFee = redistributionBnbFee_;
+        totalFee = lpFee.add(marketingFee).add(redistributionBnbFee);
+
+        layerOneBnbFee = layerOneBnbFee_;
+        layerTwoBnbFee = layerTwoBnbFee_;
+
+        normalReflFee = normalReflFee_;
+        whitelistBuyReflFee = whitelistBuyReflFee_;
+        whitelistSellReflFee = whitelistSellReflFee_;
+
+        emit FeesUpdated(
+            lpFee_,
+            marketingFee_,
+            redistributionBnbFee_,
+            layerOneBnbFee_,
+            layerTwoBnbFee_,
+            normalReflFee_,
+            whitelistBuyReflFee_,
+            whitelistSellReflFee_
+        );
     }
 }
 
