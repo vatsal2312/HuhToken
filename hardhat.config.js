@@ -3,6 +3,8 @@ require("dotenv").config();
 require("@nomiclabs/hardhat-etherscan");
 require("@nomiclabs/hardhat-waffle");
 require("hardhat-gas-reporter");
+require("hardhat-spdx-license-identifier")
+require("hardhat-contract-sizer")
 require("solidity-coverage");
 const { removeConsoleLog } = require("hardhat-preprocessor");
 
@@ -42,19 +44,34 @@ module.exports = {
     apiKey: process.env.ETHERSCAN_API_KEY,
   },
   solidity: {
-    version: "0.8.0",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 999999
+    compilers: [
+      {
+        version: "0.8.0"
+      }, {
+        version: "0.6.12"
+      }, {
+        version: "0.5.16"
+      }, {
+        version: "0.5.0"
+      }, {
+        version: "0.4.18"
       }
-    }
+    ]
   },
   paths: {
     sources: "./contracts",
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts"
+  },
+  spdxLicenseIdentifier: {
+    overwrite: true,
+    runOnCompile: true
+  },
+  contractSizer: {
+    alphaSort: true,
+    runOnCompile: false,
+    disambiguatePaths: false
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,

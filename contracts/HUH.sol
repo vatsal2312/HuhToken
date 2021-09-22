@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -7,7 +8,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./helpers/IterableMapping.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import { IUniswapV2Pair, IUniswapV2Router02 } from "./interfaces/IUniswap.sol";
+import { IUniswapV2Pair, IUniswapV2Router02, IUniswapV2Factory } from "./interfaces/IUniswap.sol";
 
 
 contract HUH is ERC20, Ownable {
@@ -104,15 +105,16 @@ contract HUH is ERC20, Ownable {
     //  -----------------------------
 
 
-    constructor(address uniswapV2Router_, address uniswapV2Pair_) public ERC20("HUH Token", "HUH") {
+    constructor(address uniswapV2Router_) public ERC20("HUH Token", "HUH") {
     	dividendTracker = new HUHDividendTracker();
     	liquidityWallet = owner();
         _saveFees(1, 1, 5, 10, 2, 1, 3, 8);
 
-        uniswapV2Pair = uniswapV2Pair_;
         uniswapV2Router = IUniswapV2Router02(uniswapV2Router_);
+        address _uniswapV2Pair = IUniswapV2Factory(uniswapV2Router.factory()).createPair(address(this), uniswapV2Router.WETH());
+        uniswapV2Pair = _uniswapV2Pair;
 
-        _setAutomatedMarketMakerPair(uniswapV2Pair_, true);
+        _setAutomatedMarketMakerPair(_uniswapV2Pair, true);
 
         // exclude from receiving dividends
         dividendTracker.excludeFromDividends(address(dividendTracker));
@@ -131,7 +133,7 @@ contract HUH is ERC20, Ownable {
             _mint is an internal function in ERC20.sol that is only called here,
             and CANNOT be called ever again
         */
-        _mint(owner(), 1000000000 * (10**18));
+        _mint(owner(), 10**15 * (10**18)); // 1 Quadrilion HUH
     }
 
     receive() external payable {}
