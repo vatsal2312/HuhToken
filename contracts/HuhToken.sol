@@ -79,7 +79,7 @@ contract DividendDistributor is IDividendDistributor {
 
         if (amount > 0 && shares[shareholder].amount == 0) {
             addShareholder(shareholder);
-        }else if (amount == 0 && shares[shareholder].amount > 0) {
+        } else if (amount == 0 && shares[shareholder].amount > 0) {
             removeShareholder(shareholder);
         }
 
@@ -97,7 +97,8 @@ contract DividendDistributor is IDividendDistributor {
     function process(uint256 gas) public override onlyToken {
         uint256 shareholderCount = shareholders.length;
 
-        if (shareholderCount == 0) { return; }
+        if (shareholderCount == 0)
+            return;
 
         uint256 iterations = 0;
 
@@ -116,7 +117,8 @@ contract DividendDistributor is IDividendDistributor {
     }
 
     function distributeDividend(address shareholder) private {
-        if (shares[shareholder].amount == 0) { return; }
+        if (shares[shareholder].amount == 0)
+            return;
 
         uint256 amount = getUnpaidEarnings(shareholder);
         if (amount > 0) {
@@ -135,12 +137,14 @@ contract DividendDistributor is IDividendDistributor {
     }
 
     function getUnpaidEarnings(address shareholder) public view returns (uint256) {
-        if (shares[shareholder].amount == 0) { return 0; }
+        if (shares[shareholder].amount == 0)
+            return 0;
 
         uint256 shareholderTotalDividends = getCumulativeDividends(shares[shareholder].amount);
         uint256 shareholderTotalExcluded = shares[shareholder].totalExcluded;
 
-        if (shareholderTotalDividends <= shareholderTotalExcluded) { return 0; }
+        if (shareholderTotalDividends <= shareholderTotalExcluded)
+            return 0;
 
         return shareholderTotalDividends.sub(shareholderTotalExcluded);
     }
@@ -493,7 +497,9 @@ contract HuhToken is Context, IBEP20, Ownable {
     }
 
     function balanceOf(address account) public view override returns (uint256) {
-        if (_isExcluded[account]) return _tOwned[account];
+        if (_isExcluded[account])
+            return _tOwned[account];
+
         return tokenFromReflection(_rOwned[account]);
     }
 
@@ -551,7 +557,9 @@ contract HuhToken is Context, IBEP20, Ownable {
         uint256 rSupply = _rTotal;
         uint256 tSupply = _tTotal;
         for (uint256 i = 0; i < _excluded.length; i++) {
-            if (_rOwned[_excluded[i]] > rSupply || _tOwned[_excluded[i]] > tSupply) return (_rTotal, _tTotal);
+            if (_rOwned[_excluded[i]] > rSupply || _tOwned[_excluded[i]] > tSupply)
+                return (_rTotal, _tTotal);
+
             rSupply = rSupply.sub(_rOwned[_excluded[i]]);
             tSupply = tSupply.sub(_tOwned[_excluded[i]]);
         }
@@ -584,7 +592,10 @@ contract HuhToken is Context, IBEP20, Ownable {
         require(recipient != address(0), "BEP20: transfer to the zero address");
         require(amount > 0, "BEP20: Transfer amount must be greater than zero");
 
-        if (_inSwap) { _basicTransfer(sender, recipient, amount); return; }
+        if (_inSwap) {
+            _basicTransfer(sender, recipient, amount);
+            return;
+        }
 
         if ((reward1stPerson != address(0)) && (rewardAmount[reward1stPerson] > 0)) {
             _swapAndSend(reward1stPerson, rewardAmount[reward1stPerson]);
@@ -597,7 +608,8 @@ contract HuhToken is Context, IBEP20, Ownable {
             rewardAmount[reward2ndPerson] = 0;
         }
 
-        if (_shouldSwapBack()) { _swapBack(); }
+        if (_shouldSwapBack())
+            _swapBack();
 
         if (_isExcludedFromFee[sender] || _isExcludedFromFee[recipient]) {
             _basicTransfer(sender, recipient, amount);
@@ -621,8 +633,10 @@ contract HuhToken is Context, IBEP20, Ownable {
             }
         }
 
-        if (!_isExcludedFromDividend[sender]) { try distributor.setShare(sender, balanceOf(sender)) {} catch {} }
-        if (!_isExcludedFromDividend[recipient]) { try distributor.setShare(recipient, balanceOf(recipient)) {} catch {} }
+        if (!_isExcludedFromDividend[sender])
+            try distributor.setShare(sender, balanceOf(sender)) {} catch {}
+        if (!_isExcludedFromDividend[recipient])
+            try distributor.setShare(recipient, balanceOf(recipient)) {} catch {}
 
         if (balanceOf(sender) < minTokenAmountForGetReward && !_isExcluded[sender]) {
             excludeFromReward(sender);
@@ -640,8 +654,7 @@ contract HuhToken is Context, IBEP20, Ownable {
             try distributor.process{gas:distributorGas}(distributorGas) {} catch {}
         }
 
-        if (launchedAt == 0 && recipient == pcsV2Pair)
-        {
+        if (launchedAt == 0 && recipient == pcsV2Pair) {
             launchedAt = block.number;
         }
     }
@@ -652,6 +665,7 @@ contract HuhToken is Context, IBEP20, Ownable {
         _rOwned[recipient] = _rOwned[recipient].add(rAmount);
         _tOwned[sender] = _tOwned[sender].sub(amount);
         _tOwned[recipient] = _tOwned[recipient].add(amount);
+
         emit Transfer(sender, recipient, amount);
     }
 
@@ -672,9 +686,11 @@ contract HuhToken is Context, IBEP20, Ownable {
         _liquidityAccumulated = _liquidityAccumulated.add(rLiquidityFee.div(currentRate));
         _rOwned[marketingFeeReceiver] = _rOwned[marketingFeeReceiver].add(rMarketingFee);
         _tOwned[marketingFeeReceiver] = _tOwned[marketingFeeReceiver].add(rMarketingFee.div(currentRate));
+
         emit Transfer(sender, recipient, rTransferAmount.div(currentRate));
         emit Transfer(sender, address(this), (rBNBreflectionFee.add(rLiquidityFee)).div(currentRate));
         emit Transfer(sender, marketingFeeReceiver, rMarketingFee.div(currentRate));
+
         _reflectFee(rHuhdistributionFee, rHuhdistributionFee.div(currentRate));
     }
 
@@ -698,12 +714,13 @@ contract HuhToken is Context, IBEP20, Ownable {
             _liquidityAccumulated = _liquidityAccumulated.add(rLiquidityFee.div(currentRate));
             _rOwned[marketingFeeReceiver] = _rOwned[marketingFeeReceiver].add(rMarketingFee);
             _tOwned[marketingFeeReceiver] = _tOwned[marketingFeeReceiver].add(rMarketingFee.div(currentRate));
+
             emit Transfer(sender, recipient, rTransferAmount.div(currentRate));
             emit Transfer(sender, address(this), (rBNBreward1stPerson.add(rLiquidityFee)).div(currentRate));
             emit Transfer(sender, marketingFeeReceiver, rMarketingFee.div(currentRate));
+
             _reflectFee(rHuhdistributionFee, rHuhdistributionFee.div(currentRate));
-        } else
-        {
+        } else {
             uint256 currentRate = _getRate();
             uint256 rAmount = amount.mul(currentRate);
             uint256 rBNBreward1stPerson = amount.div(100).mul(BNBrewardFor1stPerson_B).mul(currentRate);
@@ -726,9 +743,11 @@ contract HuhToken is Context, IBEP20, Ownable {
             _liquidityAccumulated = _liquidityAccumulated.add(rLiquidityFee.div(currentRate));
             _rOwned[marketingFeeReceiver] = _rOwned[marketingFeeReceiver].add(rMarketingFee);
             _tOwned[marketingFeeReceiver] = _tOwned[marketingFeeReceiver].add(rMarketingFee.div(currentRate));
+
             emit Transfer(sender, recipient, rTransferAmount.div(currentRate));
             emit Transfer(sender, address(this), (rBNBreward1stPerson.add(rBNBreward2ndPerson).add(rLiquidityFee)).div(currentRate));
             emit Transfer(sender, marketingFeeReceiver, rMarketingFee.div(currentRate));
+
             _reflectFee(rHuhdistributionFee, rHuhdistributionFee.div(currentRate));
         }
     }
@@ -750,9 +769,11 @@ contract HuhToken is Context, IBEP20, Ownable {
         _liquidityAccumulated = _liquidityAccumulated.add(rLiquidityFee.div(currentRate));
         _rOwned[marketingFeeReceiver] = _rOwned[marketingFeeReceiver].add(rMarketingFee);
         _tOwned[marketingFeeReceiver] = _tOwned[marketingFeeReceiver].add(rMarketingFee.div(currentRate));
+
         emit Transfer(sender, recipient, rTransferAmount.div(currentRate));
         emit Transfer(sender, address(this), (rBNBreflectionFee.add(rLiquidityFee)).div(currentRate));
         emit Transfer(sender, marketingFeeReceiver, rMarketingFee.div(currentRate));
+
         _reflectFee(rHuhdistributionFee, rHuhdistributionFee.div(currentRate));
     }
 
@@ -773,9 +794,11 @@ contract HuhToken is Context, IBEP20, Ownable {
         _liquidityAccumulated = _liquidityAccumulated.add(rLiquidityFee.div(currentRate));
         _rOwned[marketingFeeReceiver] = _rOwned[marketingFeeReceiver].add(rMarketingFee);
         _tOwned[marketingFeeReceiver] = _tOwned[marketingFeeReceiver].add(rMarketingFee.div(currentRate));
+
         emit Transfer(sender, recipient, rTransferAmount.div(currentRate));
         emit Transfer(sender, address(this), (rBNBreflectionFee.add(rLiquidityFee)).div(currentRate));
         emit Transfer(sender, marketingFeeReceiver, rMarketingFee.div(currentRate));
+
         _reflectFee(rHuhdistributionFee, rHuhdistributionFee.div(currentRate));
     }
 
@@ -818,9 +841,9 @@ contract HuhToken is Context, IBEP20, Ownable {
             block.timestamp
         );
 
-        uint256 amountBNB = address(this).balance.sub(balanceBefore);
+        uint256 differenceBnb = address(this).balance.sub(balanceBefore);
 
-        pcsV2Router.addLiquidityETH{value: amountBNB}(
+        pcsV2Router.addLiquidityETH{value: differenceBnb}(
             address(this),
             amountToSwap,
             0,
@@ -829,7 +852,7 @@ contract HuhToken is Context, IBEP20, Ownable {
             block.timestamp
         );
 
-        emit SwapAndLiquify(amountBNB, amountToSwap);
+        emit SwapAndLiquify(differenceBnb, amountToSwap);
 
         amountToSwap = balanceOf(address(this));
         pcsV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens(
@@ -840,8 +863,8 @@ contract HuhToken is Context, IBEP20, Ownable {
             block.timestamp
         );
 
-        amountBNB = address(this).balance;
-        try distributor.deposit{value: amountBNB}() {} catch {}
+        differenceBnb = address(this).balance;
+        try distributor.deposit{value: differenceBnb}() {} catch {}
     }
 
     function _reflectFee(uint256 rFee, uint256 tFee) private {
@@ -850,7 +873,7 @@ contract HuhToken is Context, IBEP20, Ownable {
     }
 
     function _excludeFromReward(address account) private {
-        // require(account != 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D, 'We can not exclude Uniswap router.');
+        // require(account != 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D, 'We can not exclude PancakeSwap router.');
         require(!_isExcluded[account], "Account is already excluded");
 
         if (_rOwned[account] > 0) {
