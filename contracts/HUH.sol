@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "./DividendPayingToken.sol";
+import "./dividends/DividendPayingToken.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./helpers/IterableMapping.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";

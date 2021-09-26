@@ -5,8 +5,8 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "./helpers/SafeMathUint.sol";
-import "./helpers/SafeMathInt.sol";
+import "../helpers/SafeMathUint.sol";
+import "../helpers/SafeMathInt.sol";
 import "./DividendPayingTokenInterface.sol";
 import "./DividendPayingTokenOptionalInterface.sol";
 
