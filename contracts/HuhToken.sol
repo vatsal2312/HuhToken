@@ -2,16 +2,14 @@
 
 pragma solidity ^0.8.0;
 
-/**
 
-    ██╗  ██╗██╗   ██╗██╗  ██╗    ████████╗ ██████╗ ██╗  ██╗███████╗███╗   ██╗
-    ██║  ██║██║   ██║██║  ██║    ╚══██╔══╝██╔═══██╗██║ ██╔╝██╔════╝████╗  ██║
-    ███████║██║   ██║███████║       ██║   ██║   ██║█████╔╝ █████╗  ██╔██╗ ██║
-    ██╔══██║██║   ██║██╔══██║       ██║   ██║   ██║██╔═██╗ ██╔══╝  ██║╚██╗██║
-    ██║  ██║╚██████╔╝██║  ██║       ██║   ╚██████╔╝██║  ██╗███████╗██║ ╚████║
-    ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝       ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝
+//      ██╗  ██╗██╗   ██╗██╗  ██╗    ████████╗ ██████╗ ██╗  ██╗███████╗███╗   ██╗
+//      ██║  ██║██║   ██║██║  ██║    ╚══██╔══╝██╔═══██╗██║ ██╔╝██╔════╝████╗  ██║
+//      ███████║██║   ██║███████║       ██║   ██║   ██║█████╔╝ █████╗  ██╔██╗ ██║
+//      ██╔══██║██║   ██║██╔══██║       ██║   ██║   ██║██╔═██╗ ██╔══╝  ██║╚██╗██║
+//      ██║  ██║╚██████╔╝██║  ██║       ██║   ╚██████╔╝██║  ██╗███████╗██║ ╚████║
+//      ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝       ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝
 
- **/
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -171,19 +169,30 @@ contract HuhToken is Context, IBEP20, Ownable {
     uint8 constant _DECIMALS = 9;
 
     uint256 private constant MAX = ~uint256(0);
-    uint256 private _tTotal = 1 * 10 ** 15 * (10 ** 9); // 1 Quadrilion HUH
+    uint256 private _tTotal = 1 * 10 ** 15 * ( 10** _DECIMALS); // 1 Quadrilion HUH
     uint256 private _rTotal = (MAX - (MAX % _tTotal));
     uint256 private _tFeeTotal;
 
-    uint256 public liquidityFeeOnBuy = 2;
-    uint256 public BNBreflectionFeeOnBuy = 10;
-    uint256 public marketingFeeOnBuy = 1;
-    uint256 public HuHdistributionFeeOnBuy = 2;
 
-    uint256 public liquidityFeeOnBuyWhiteListed_A = 2;
+    //  +---------------------------+------+-----+------+------------+--------------+---------+
+    //  |                           | BNB% | LP% | HUH% | Marketing% | Layer 2 BNB% | Total % |
+    //  +---------------------------+------+-----+------+------------+--------------+---------+
+    //  | Normal Buy                | 5    | 1   | 8    | 1          |              | 15      |
+    //  | Whitelisted Buy (layer 1) | 10   | 1   | 3    | 1          |              | 15      |
+    //  | Whitelisted Buy (layer 2) | 10   | 1   | 1    | 1          | 2            | 15      |
+    //  | Normal Sell               | 5    | 1   | 8    | 1          |              | 15      |
+    //  | Whitelisted Sell          | 5    | 1   | 3    | 1          |              | 10      |
+    //  +---------------------------+------+-----+------+------------+--------------+---------+
+
+    uint256 public liquidityFeeOnBuy = 1;
+    uint256 public BNBreflectionFeeOnBuy = 5;
+    uint256 public marketingFeeOnBuy = 1;
+    uint256 public HuHdistributionFeeOnBuy = 8;
+
+    uint256 public liquidityFeeOnBuyWhiteListed_A = 1;
     uint256 public BNBrewardFor1stPerson_A = 10;
     uint256 public marketingFeeOnBuyWhiteListed_A = 1;
-    uint256 public HuHdistributionFeeOnBuyWhiteListed_A = 2;
+    uint256 public HuHdistributionFeeOnBuyWhiteListed_A = 3;
 
     uint256 public liquidityFeeOnBuyWhiteListed_B = 1;
     uint256 public BNBrewardFor1stPerson_B = 10;
@@ -191,19 +200,19 @@ contract HuhToken is Context, IBEP20, Ownable {
     uint256 public marketingFeeOnBuyWhiteListed_B = 1;
     uint256 public HuHdistributionFeeOnBuyWhiteListed_B = 1;
 
-    uint256 public liquidityFeeOnSell = 4;
-    uint256 public BNBreflectionFeeOnSell = 10;
-    uint256 public marketingFeeOnSell = 2;
-    uint256 public HuHdistributionFeeOnSell = 4;
+    uint256 public liquidityFeeOnSell = 1;
+    uint256 public BNBreflectionFeeOnSell = 5;
+    uint256 public marketingFeeOnSell = 1;
+    uint256 public HuHdistributionFeeOnSell = 8;
 
-    uint256 public liquidityFeeOnSellWhiteListed = 2;
+    uint256 public liquidityFeeOnSellWhiteListed = 1;
     uint256 public BNBreflectionFeeOnSellWhiteListed = 5;
     uint256 public marketingFeeOnSellWhiteListed = 1;
-    uint256 public HuHdistributionFeeOnSellWhiteListed = 2;
+    uint256 public HuHdistributionFeeOnSellWhiteListed = 3;
 
     uint256 public launchedAt;
     uint256 public distributorGas = 500000;
-    uint256 public minTokenAmountForGetReward;
+    uint256 public minTokenAmountForGetReward = 10000 * (10 ** _DECIMALS);
 
     address public marketingFeeReceiver;
     address private constant _DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
@@ -310,7 +319,7 @@ contract HuhToken is Context, IBEP20, Ownable {
     }
 
     function changeMinAmountForReward(uint256 amount) external onlyOwner {
-        minTokenAmountForGetReward = amount * 10 ** 9;
+        minTokenAmountForGetReward = amount * (10 ** _DECIMALS);
     }
 
     function changeFeesForNormalBuy(
@@ -373,6 +382,11 @@ contract HuhToken is Context, IBEP20, Ownable {
         BNBreflectionFeeOnSellWhiteListed = _BNBreflectionFeeOnSellWhiteListed;
         marketingFeeOnSellWhiteListed = _marketingFeeOnSellWhiteListed;
         HuHdistributionFeeOnSellWhiteListed = _HuHdistributionFeeOnSellWhiteListed;
+    }
+
+    function changeMarketingWallet(address marketingFeeReceiver_) external onlyOwner {
+        require(marketingFeeReceiver_ != address(0), "Zero address not allowed!");
+        marketingFeeReceiver = marketingFeeReceiver_;
     }
 
 
