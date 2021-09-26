@@ -72,6 +72,7 @@ contract HuhToken is Context, IBEP20, Ownable {
     uint256 public distributorGas = 500000;
     uint256 public minTokenAmountForGetReward = 10000 * (10 ** _DECIMALS);
 
+    address public refCodeRegistrator;  // Address who allowed to register code for users (will be used later)
     address public marketingFeeReceiver;
     address private constant _DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
@@ -84,8 +85,8 @@ contract HuhToken is Context, IBEP20, Ownable {
     mapping(address => bool) private _isExcluded;
     address[] private _excluded;
 
-    mapping(address => bytes4) public referCodeForUser;
-    mapping(bytes4 => address) public referUserForCode;
+    mapping(address => bytes) public referCodeForUser;
+    mapping(bytes => address) public referUserForCode;
     mapping(address => address) public referParent;
     mapping(address => bool) public isWhitelisted;
     mapping(address => bool) public isFirstBuy;
@@ -100,7 +101,7 @@ contract HuhToken is Context, IBEP20, Ownable {
     mapping(address => uint256) public rewardAmount;
 
     bool public swapEnabled = true;
-    uint256 public swapThreshold = _tTotal / 20000;
+    uint256 public swapThreshold = 200000 * (10 ** _DECIMALS); // Swap every 200k tokens
     uint256 private _liquidityAccumulated;
 
     bool private _inSwap;
@@ -110,6 +111,8 @@ contract HuhToken is Context, IBEP20, Ownable {
         _inSwap = false;
     }
 
+    event UserWhitelisted(address account, address referee);
+    event CodeRegisterred(address account, bytes code);
     event SwapAndLiquify(
         uint256 ethReceived,
         uint256 tokensIntoLiqudity
@@ -247,21 +250,45 @@ contract HuhToken is Context, IBEP20, Ownable {
         marketingFeeReceiver = marketingFeeReceiver_;
     }
 
+    function setRefCodeRegistrator(address refCodeRegistrator_) external onlyOwner {
+        refCodeRegistrator = refCodeRegistrator_;
+    }
+
+    function changeSwapThreshold(uint256 swapThreshold_) external onlyOwner {
+        swapThreshold = swapThreshold_ * (10 ** _DECIMALS);
+    }
+
+    function registerCode(address account, string memory code) external {
+        require(msg.sender == refCodeRegistrator || msg.sender == owner(), "Not autorized!");
+
+        bytes memory code_ = bytes(code);
+        require(code_.length > 0, "Invalid code!");
+        require(referUserForCode[code_] == address(0), "Code already used!");
+
+        _registerCode(account, code_);
+    }
+
 
     //  -----------------------------
     //  SETTERS
     //  -----------------------------
 
 
-    function inputReferCode(bytes4 code) external {
-        require(referParent[msg.sender] == address(0), "This address has already inputed refer code!");
-        require(referUserForCode[code] != address(0), "Invaild code!");
-        require(msg.sender != referUserForCode[code], "You can't input your refer code!");
+    function whitelist(string memory refCode) external {
+        bytes memory refCode_ = bytes(refCode);
+        require(refCode_.length > 0, "Invalid code!");
+        require(!isWhitelisted[msg.sender], "Already whitelisted!");
+        require(referUserForCode[refCode_] != address(0), "Invalid or non used code!");
 
-        referParent[msg.sender] = referUserForCode[code];
-        isWhitelisted[msg.sender] = true;
-        isWhitelisted[referParent[msg.sender]] = true;
-        isFirstBuy[msg.sender] = true;
+        _whitelistWithRef(msg.sender, referUserForCode[refCode_]);
+    }
+
+    function registerCode(string memory code) external {
+        bytes memory code_ = bytes(code);
+        require(code_.length > 0, "Invalid code!");
+        require(referUserForCode[code_] == address(0), "Code already used!");
+
+        _registerCode(msg.sender, code_);
     }
 
     function transfer(address recipient, uint256 amount)
@@ -481,8 +508,7 @@ contract HuhToken is Context, IBEP20, Ownable {
                 } else {
                     _normalBuy(sender, recipient, amount);
                 }
-            }
-            else{
+            } else {
                 _basicTransfer(sender, recipient, amount);
             }
         }
@@ -757,5 +783,20 @@ contract HuhToken is Context, IBEP20, Ownable {
 
     function _setIsExcludedFromDividend(address account, bool flag) private {
         _isExcludedFromDividend[account] = flag;
+    }
+
+    function _whitelistWithRef(address account, address referee) private {
+        isFirstBuy[account] = true;
+        isWhitelisted[msg.sender] = true;
+        referParent[msg.sender] = referee;
+
+        emit UserWhitelisted(account, referee);
+    }
+
+    function _registerCode(address account, bytes memory code) private {
+        referUserForCode[code] = account;
+        referCodeForUser[account] = code;
+
+        emit CodeRegisterred(account, code);
     }
 }
