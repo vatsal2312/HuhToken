@@ -915,7 +915,7 @@ contract HuhToken is Context, IBEP20, Ownable {
 
     constructor() {
         IUniswapV2Router02 _pancakeswapV2Router =
-            IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+            IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
 
         // Create a uniswap pair for this new token
         pcsV2Pair = IUniswapV2Factory(_pancakeswapV2Router.factory()).createPair(
@@ -1545,7 +1545,7 @@ contract HuhToken is Context, IBEP20, Ownable {
     }
 
     function _excludeFromReward(address account) private {
-        // require(account != 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D, 'We can not exclude PancakeSwap router.');
+        // require(account != 0x10ED43C718714eb63d5aA57B78B54704E256024E, 'We can not exclude PancakeSwap router.');
         require(!_isExcluded[account], "Account is already excluded");
 
         if (_rOwned[account] > 0) {
