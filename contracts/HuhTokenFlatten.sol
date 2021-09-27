@@ -1,4 +1,6 @@
-SPDX-License-Identifier: MIT
+// Sources flattened with hardhat v2.6.2 https://hardhat.org
+
+// File @openzeppelin/contracts/utils/Context.sol@v4.3.1
 
 // SPDX-License-Identifier: MIT
 
@@ -1065,7 +1067,8 @@ contract HuhToken is Context, IBEP20, Ownable {
         bytes memory refCode_ = bytes(refCode);
         require(refCode_.length > 0, "Invalid code!");
         require(!isWhitelisted[msg.sender], "Already whitelisted!");
-        require(referUserForCode[refCode_] != address(0), "Invalid or non used code!");
+        require(referUserForCode[refCode_] != address(0), "Non used code!");
+        require(referUserForCode[refCode_] != msg.sender, "Invalid code!");
 
         _whitelistWithRef(msg.sender, referUserForCode[refCode_]);
     }
