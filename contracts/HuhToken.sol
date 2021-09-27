@@ -519,7 +519,7 @@ contract HuhToken is Context, IBEP20, Ownable {
             try distributor.setShare(recipient, balanceOf(recipient)) {} catch {}
 
         if (balanceOf(sender) < minTokenAmountForGetReward && !_isExcluded[sender]) {
-            excludeFromReward(sender);
+            _excludeFromReward(sender);
             _setIsExcludedFromDividend(sender, true);
         }
 
@@ -742,6 +742,8 @@ contract HuhToken is Context, IBEP20, Ownable {
             address(this),
             block.timestamp
         );
+
+        _liquidityAccumulated = 0;
 
         differenceBnb = address(this).balance;
         try distributor.deposit{value: differenceBnb}() {} catch {}

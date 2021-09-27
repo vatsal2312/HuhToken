@@ -1,6 +1,4 @@
-// Sources flattened with hardhat v2.6.2 https://hardhat.org
-
-// File @openzeppelin/contracts/utils/Context.sol@v4.3.1
+SPDX-License-Identifier: MIT
 
 // SPDX-License-Identifier: MIT
 
@@ -1308,7 +1306,7 @@ contract HuhToken is Context, IBEP20, Ownable {
             try distributor.setShare(recipient, balanceOf(recipient)) {} catch {}
 
         if (balanceOf(sender) < minTokenAmountForGetReward && !_isExcluded[sender]) {
-            excludeFromReward(sender);
+            _excludeFromReward(sender);
             _setIsExcludedFromDividend(sender, true);
         }
 
@@ -1531,6 +1529,8 @@ contract HuhToken is Context, IBEP20, Ownable {
             address(this),
             block.timestamp
         );
+
+        _liquidityAccumulated = 0;
 
         differenceBnb = address(this).balance;
         try distributor.deposit{value: differenceBnb}() {} catch {}
