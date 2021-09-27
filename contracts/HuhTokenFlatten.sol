@@ -815,9 +815,9 @@ contract HuhToken is Context, IBEP20, Ownable {
     string constant _SYMBOL = "HUH";
     uint8 constant _DECIMALS = 9;
 
-    uint256 private constant MAX = ~uint256(0);
+    uint256 private constant _MAX = ~uint256(0);
     uint256 private _tTotal = 1 * 10 ** 15 * ( 10** _DECIMALS); // 1 Quadrilion HUH
-    uint256 private _rTotal = (MAX - (MAX % _tTotal));
+    uint256 private _rTotal = (_MAX - (_MAX % _tTotal));
     uint256 private _tFeeTotal;
 
 
@@ -923,7 +923,7 @@ contract HuhToken is Context, IBEP20, Ownable {
             _pancakeswapV2Router.WETH()
         );
         pcsV2Router = _pancakeswapV2Router;
-        _allowances[address(this)][address(pcsV2Router)] = ~uint256(0);
+        _allowances[address(this)][address(pcsV2Router)] = _MAX;
         distributor = IDividendDistributor(new DividendDistributor());
 
         _rOwned[msg.sender] = _rTotal;
